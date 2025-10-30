@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Certificados</title>
+    <!-- 1. Tailwind CSS para el diseño -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. Librerías de JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.0/FileSaver.min.js"></script>
+    
+    <style>
+        /* Fuente principal */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        /* Estilo para la zona de arrastre activa */
+        .drag-over {
+            border-color: #4f46e5; /* indigo-500 */
+            background-color: #f0f2ff; /* Un fondo sutil */
+        }
+        /* Estilo para la zona de éxito */
+        .file-success {
+            border-color: #22c55e; /* green-500 */
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-indigo-50 via-white to-purple-50 min-h-screen flex items-center justify-center p-4">
+
+    <!-- Tarjeta Principal -->
+    <div class="bg-white p-8 md:p-12 rounded-2xl shadow-xl w-full max-w-4xl transition-all duration-500">
+        <h1 class="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-6">
+            Generador Interactivo de Certificados
+        </h1>
+        <p class="text-center text-gray-600 mb-10">
+            Sigue los 3 pasos para cargar tus archivos. El botón de generación se activará automáticamente.
+        </p>
+
+        <!-- Contenedor de Zonas de Carga (Drag and Drop) -->
+        <div class="grid md:grid-cols-3 gap-6 mb-10">
+            
+            <!-- Paso 1: Archivo de Datos -->
+            <label id="csv-drop-zone" class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-500 transition-all duration-300 min-h-[220px]">
+                <input type="file" id="csv-file" accept=".xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden">
+                <!-- Estado inicial -->
+                <div id="csv-default" class="flex flex-col items-center justify-center text-center">
+                    <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-4-4V6a2 2 0 012-2h10a2 2 0 012 2v6a4 4 0 01-4 4H7z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 16v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2m14-8l-2-2m0 0l-2 2m2-2v10"></path></svg>
+                    <p class="mt-2 font-semibold text-indigo-600">Paso 1: Sube el Excel</p>
+                    <p class="text-sm text-gray-500">Arrastra o haz clic aquí</p>
+                </div>
+                <!-- Estado de éxito -->
+                <div id="csv-success" class="hidden flex-col items-center justify-center text-center">
+                    <svg class="w-12 h-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <p class="mt-2 font-semibold text-gray-700">¡Listo!</p>
+                    <p id="csv-filename" class="text-sm text-gray-500 max-w-full truncate px-4"></p>
+                </div>
+            </label>
+
+            <!-- Paso 2: Plantilla -->
+            <label id="template-drop-zone" class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-500 transition-all duration-300 min-h-[220px]">
+                <input type="file" id="template-file" accept="image/jpeg, image/png" class="hidden">
+                <!-- Estado inicial -->
+                <div id="template-default" class="flex flex-col items-center justify-center text-center">
+                    <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l-1.586-1.586a2 2 0 010-2.828L16 8M4 16v4a2 2 0 002 2h12a2 2 0 002-2v-4M4 16H2a2 2 0 01-2-2V6a2 2 0 012-2h16a2 2 0 012 2v8a2 2 0 01-2 2h-2"></path></svg>
+                    <p class="mt-2 font-semibold text-indigo-600">Paso 2: Sube la Plantilla</p>
+                    <p class="text-sm text-gray-500">Arrastra o haz clic aquí</p>
+                </div>
+                <!-- Estado de éxito -->
+                <div id="template-success" class="hidden flex-col items-center justify-center text-center">
+                    <svg class="w-12 h-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <p class="mt-2 font-semibold text-gray-700">¡Listo!</p>
+                    <p id="template-filename" class="text-sm text-gray-500 max-w-full truncate px-4"></p>
+                </div>
+            </label>
+
+            <!-- Paso 3: Firma -->
+            <label id="signature-drop-zone" class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-500 transition-all duration-300 min-h-[220px]">
+                <input type="file" id="signature-file" accept="image/jpeg, image/png" class="hidden">
+                <!-- Estado inicial -->
+                <div id="signature-default" class="flex flex-col items-center justify-center text-center">
+                    <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    <p class="mt-2 font-semibold text-indigo-600">Paso 3: Sube la Firma</p>
+                    <p class="text-sm text-gray-500">Arrastra o haz clic aquí</p>
+                </div>
+                <!-- Estado de éxito -->
+                <div id="signature-success" class="hidden flex-col items-center justify-center text-center">
+                    <svg class="w-12 h-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <p class="mt-2 font-semibold text-gray-700">¡Listo!</p>
+                    <p id="signature-filename" class="text-sm text-gray-500 max-w-full truncate px-4"></p>
+                </div>
+            </label>
+
+        </div>
+
+        <!-- Botón de Generar -->
+        <button id="generate-btn" class="w-full bg-indigo-600 text-white py-3 px-6 rounded-lg font-semibold text-lg hover:bg-indigo-700 transition-all duration-300 shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:opacity-70 disabled:cursor-not-allowed" disabled>
+            Generar Certificados
+        </button>
+
+        <!-- Área de Estado -->
+        <div id="status-area" class="mt-6 text-center h-10 flex items-center justify-center space-x-2">
+            <!-- Spinner (oculto por defecto) -->
+            <div id="spinner" class="hidden" role="status">
+                <svg aria-hidden="true" class="inline w-8 h-8 text-gray-200 animate-spin fill-indigo-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
+                    <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/>
+                </svg>
+                <span class="sr-only">Cargando...</span>
+            </div>
+            <p id="status-message" class="text-indigo-600 font-medium"></p>
+            <!-- Mensaje de Error -->
+            <p id="error-message" class="hidden text-red-600 font-medium flex items-center space-x-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span></span>
+            </p>
+        </div>
+
+    </div>
+
+    <script>
+        // Inicializar las librerías
+        const { jsPDF } = window.jspdf;
+        // XLSX está disponible globalmente desde el script
+        const JSZip = window.JSZip;
+        const saveAs = window.saveAs;
+
+        // Referencias a los elementos del DOM
+        const generateBtn = document.getElementById('generate-btn');
+        const statusMessage = document.getElementById('status-message');
+        const errorMessage = document.getElementById('error-message').querySelector('span');
+        const errorContainer = document.getElementById('error-message');
+        const spinner = document.getElementById('spinner');
+
+        // Almacenamiento para los archivos cargados
+        let csvFile = null;
+        let templateFile = null;
+        let signatureFile = null;
+
+        /** Función para comprobar si todos los archivos están listos y activar el botón */
+        function checkAllFilesReady() {
+            if (csvFile && templateFile && signatureFile) {
+                generateBtn.disabled = false;
+            } else {
+                generateBtn.disabled = true;
+            }
+        }
+
+        /** Función reutilizable para configurar cada zona de "arrastrar y soltar" */
+        function setupFileDropZone(inputId, dropZoneId, defaultStateId, successStateId, filenameId, fileStorageSetter) {
+            const fileInput = document.getElementById(inputId);
+            const dropZone = document.getElementById(dropZoneId);
+            const defaultState = document.getElementById(defaultStateId);
+            const successState = document.getElementById(successStateId);
+            const filenameEl = document.getElementById(filenameId);
+
+            // Resaltar zona al arrastrar un archivo sobre ella
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+
+            // Quitar resaltado al salir
+            dropZone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+            });
+
+            // Manejar el archivo soltado
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    fileInput.files = files; // Asignar al input
+                    handleFile(files[0]);
+                }
+            });
+
+            // Manejar el archivo seleccionado con clic
+            fileInput.addEventListener('change', (e) => {
+                const files = e.target.files;
+                if (files.length > 0) {
+                    handleFile(files[0]);
+                }
+            });
+
+            // Función interna para actualizar la UI
+            function handleFile(file) {
+                fileStorageSetter(file); // Guardar el archivo en la variable global
+                filenameEl.textContent = file.name;
+                defaultState.classList.add('hidden');
+                successState.classList.remove('hidden');
+                dropZone.classList.add('file-success');
+                dropZone.classList.remove('border-gray-300'); // Quitar borde gris
+                checkAllFilesReady(); // Comprobar si todos los archivos están listos
+            }
+        }
+
+        // Configurar las 3 zonas de carga
+        setupFileDropZone('csv-file', 'csv-drop-zone', 'csv-default', 'csv-success', 'csv-filename', (file) => { csvFile = file; });
+        setupFileDropZone('template-file', 'template-drop-zone', 'template-default', 'template-success', 'template-filename', (file) => { templateFile = file; });
+        setupFileDropZone('signature-file', 'signature-drop-zone', 'signature-default', 'signature-success', 'signature-filename', (file) => { signatureFile = file; });
+
+
+        // Listener para el botón de generar
+        generateBtn.addEventListener('click', generateCertificates);
+
+        // --- FUNCIONES AUXILIARES ---
+
+        /** Muestra un mensaje de estado o error */
+        function updateStatus(message, type = 'status') {
+            // Limpiar mensajes anteriores
+            statusMessage.textContent = '';
+            errorMessage.textContent = '';
+            errorContainer.classList.add('hidden');
+            
+            if (type === 'error') {
+                errorMessage.textContent = message;
+                errorContainer.classList.remove('hidden');
+                spinner.classList.add('hidden');
+            } else {
+                statusMessage.textContent = message;
+                spinner.classList.toggle('hidden', type !== 'loading');
+            }
+        }
+
+        /** Convierte un archivo a Data URL (Base64) */
+        function readFileAsDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        /** Lee un archivo como ArrayBuffer (necesario para SheetJS) */
+        function readFileAsArrayBuffer(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        /** Obtiene las dimensiones de una imagen desde su Data URL */
+        function getImageDimensions(dataUrl) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve({ w: img.width, h: img.height });
+                img.onerror = reject;
+                img.src = dataUrl;
+            });
+        }
+
+        /** Convierte texto a "Title Case" (ej: "andres felipe" -> "Andres Felipe") */
+        function toTitleCase(str) {
+            if (!str) return '';
+            return str.toLowerCase().split(' ').map(word => {
+                return (word.charAt(0).toUpperCase() + word.slice(1));
+            }).join(' ');
+        }
+
+        // --- FUNCIÓN PRINCIPAL ---
+
+        /** Lógica principal para generar los certificados */
+        async function generateCertificates() {
+            // 1. Validar que todos los archivos estén cargados (aunque el botón debería manejar esto)
+            if (!csvFile || !templateFile || !signatureFile) {
+                updateStatus("Error: Por favor, carga los 3 archivos.", 'error');
+                return;
+            }
+
+            generateBtn.disabled = true;
+            updateStatus("Iniciando proceso... esto puede tardar un momento.", 'loading');
+
+            try {
+                // 2. Inicializar Zip y leer archivos
+                const zip = new JSZip();
+                const pdfsFolder = zip.folder("certificados_generados");
+                
+                // Leer archivos en paralelo
+                const [templateDataUrl, signatureDataUrl, excelData] = await Promise.all([
+                    readFileAsDataURL(templateFile),
+                    readFileAsDataURL(signatureFile),
+                    readFileAsArrayBuffer(csvFile)
+                ]);
+
+                // 3. Obtener dimensiones de la firma
+                const sigDimensions = await getImageDimensions(signatureDataUrl);
+
+                // 4. Parsear el archivo Excel
+                updateStatus("Leyendo archivo Excel...", 'loading');
+                const workbook = XLSX.read(excelData, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const rows = XLSX.utils.sheet_to_json(worksheet);
+
+                let count = 0;
+                
+                if (!rows.length) {
+                    throw new Error("El archivo Excel está vacío o tiene un formato incorrecto.");
+                }
+
+                // 5. Iterar por cada fila del Excel
+                for (const row of rows) {
+                    const espacio_academico = row['Selecciona el espacio académico'] || 'N/A';
+                    const nombre_proyecto = row['Nombre del Proyecto'] || 'N/A';
+
+                    // Iterar por los 4 posibles estudiantes
+                    for (let i = 1; i <= 4; i++) {
+                        const nombre_col = `Nombre completo del estudiante ${i}`;
+                        const codigo_col = `Código del estudiante ${i}`;
+
+                        const nombre_estudiante = row[nombre_col];
+                        const codigo_estudiante = row[codigo_col];
+
+                        // Si hay un nombre de estudiante válido...
+                        if (nombre_estudiante && String(nombre_estudiante).trim()) {
+                            count++;
+                            updateStatus(`Generando certificado ${count}: ${String(nombre_estudiante).trim()}`, 'loading');
+
+                            // Limpiar datos
+                            const nombre_limpio = toTitleCase(String(nombre_estudiante).trim());
+                            let codigo_limpio = 'N/A';
+                            if (codigo_estudiante) {
+                                codigo_limpio = String(codigo_estudiante).split('.')[0].trim();
+                            }
+                            const proyecto_limpio = String(nombre_proyecto).trim();
+                            const espacio_limpio = String(espacio_academico).trim();
+                            
+                            // 6. Crear un nuevo documento PDF
+                            const doc = new jsPDF({
+                                orientation: 'landscape',
+                                unit: 'pt',
+                                format: 'letter'
+                            });
+
+                            const width = 792;
+                            const height = 612;
+                            const x_center = width / 2; // 396
+
+                            // 7. Dibujar la plantilla de fondo
+                            doc.addImage(templateDataUrl, 'JPEG', 0, 0, width, height);
+
+                            // 8. Dibujar el texto
+                            // (Las posiciones están hardcodeadas como en tu versión anterior)
+                            doc.setFont("Helvetica", "Bold");
+                            doc.setFontSize(24);
+                            doc.text(nombre_limpio, x_center, 244.8, { align: 'center' });
+
+                            doc.setFont("Helvetica", "Normal");
+                            doc.setFontSize(14);
+                            doc.text("Por su destacada participación en el proyecto:", x_center, 316.6, { align: 'center' });
+
+                            doc.setFont("Helvetica", "Bold");
+                            doc.setFontSize(16);
+                            doc.text(proyecto_limpio, x_center, 336.6, { align: 'center' });
+
+                            doc.setFont("Helvetica", "Normal");
+                            doc.setFontSize(14);
+                            doc.text(`Del espacio académico: ${espacio_limpio}`, x_center, 367.2, { align: 'center' });
+
+                            doc.setFont("Helvetica", "Normal");
+                            doc.setFontSize(12);
+                            doc.text(`Código de estudiante: ${codigo_limpio}`, x_center, 397.8, { align: 'center' });
+
+                            // 9. Dibujar la firma
+                            const aspect_ratio = sigDimensions.h / sigDimensions.w;
+                            const width_firma = 144;
+                            const height_firma = width_firma * aspect_ratio;
+                            const x_firma = x_center - (width_firma / 2);
+                            const y_firma = height - 91.8 - height_firma; 
+                            
+                            doc.addImage(signatureDataUrl, 'JPEG', x_firma, y_firma, width_firma, height_firma);
+
+                            // 10. Añadir el PDF al archivo .zip
+                            const pdfData = doc.output('blob');
+                            const filename = `${nombre_limpio.replace(/ /g, '_')}_${codigo_limpio}.pdf`;
+                            pdfsFolder.file(filename, pdfData);
+                        }
+                    }
+                }
+
+                if (count === 0) {
+                    throw new Error("No se encontraron estudiantes en el archivo. Revisa los nombres de las columnas.");
+                }
+
+                // 11. Generar y descargar el .zip
+                updateStatus(`Comprimiendo ${count} certificados...`, 'loading');
+                const zipBlob = await zip.generateAsync({ type: "blob" });
+                
+                updateStatus(`¡Proceso completado! Descargando ${count} certificados.`, 'status');
+                saveAs(zipBlob, "certificados.zip");
+
+            } catch (error) {
+                console.error(error);
+                updateStatus(`Error: ${error.message}`, 'error');
+            } finally {
+                generateBtn.disabled = false; // Siempre re-habilitar el botón al finalizar
+            }
+        }
+    </script>
+</body>
+</html>
